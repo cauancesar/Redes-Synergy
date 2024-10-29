@@ -1,0 +1,6 @@
+[submodule "Backend"]
+	path = Backend
+	url = https://github.com/BuzzTech-API/Synergy-BackEnd
+[submodule "Frontend"]
+	path = Frontend
+	url = https://github.com/BuzzTech-API/Synergy-FrontEnd
