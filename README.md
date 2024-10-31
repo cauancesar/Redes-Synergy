@@ -3,7 +3,7 @@ Configurações necessárias para implementar uma arquitetura de rede usando má
 
 <img src="https://github.com/cauancesar/Redes-Synergy/blob/main/imgs/_TopologiaRedes.drawio.png" height=800></img>
 
-## Configuração da AWS
+## *Configuração da AWS*
 
 ### 1. *Criar uma instância EC2 para cada máquina*:
 1. Acesse o console do Amazon EC2.
@@ -24,42 +24,49 @@ Configurações necessárias para implementar uma arquitetura de rede usando má
 6. Em "Instância" selecione a instância desejada.
 7. Clique em "Associar".
 
-## Configuração do Banco de Dados (MySQL)
+## *Configuração do Banco de Dados (MySQL)*
 
-### 1. *Instalar o MySQL*:
+### 1. *Instalar Docker e Docker Compose*:
 ```
-  sudo apt-get update
-  sudo apt-get install mysql-server -y
-```
-
-### 2. *Iniciar e habilitar o MySQL*:
-```
-  sudo systemctl enable --now mysql
+  sudo apt install docker.io -y
+  sudo apt  install docker-compose
 ```
 
-### 3. *Verificar status do MySQL*:
+### 2. *Criar o arquivo docker compose*:
+* Crie o arquivo docker-compose.yml
 ```
-  sudo systemctl status mysql
-```
-
-### 4. *Alterar IP de escuta para 0.0.0.0*:
-```
-  sudo vim /etc/mysql/mysql.conf.d/mysqld.cnf
-  # Alterar a linha bind-address para 0.0.0.0
+  sudo vim docker-compose.yml
 ```
 
-### 5. *Reiniciar o MySQL para aplicar as mudanças*:
-```
-  sudo systemctl restart mysql
+* Coloque as seguintes informações
+```yaml
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0-oracle  # Imagem mais leve do mysql
+    container_name: Mysql  # Nome do container
+    environment:  # Váriaveis de ambiente mysql
+      MYSQL_ROOT_PASSWORD: "teste123"  # Senha do usuário root (séra criado junto do container)
+      MYSQL_USER: "Syatt"  # Nome de usuário caso necessário
+      MYSQL_PASSWORD: "Senha123#"  #  Senha para o usuário
+      MYSQL_DATABASE: "api"  # Nome para uma database
+    ports:
+      - "3306:3306"  # Porta do host e porta do container
 ```
 
-### 6. *Opcional - Liberar a porta 3306 (caso esteja usando firewall)*:
+### 3. *Rodar o docker-compose*:
+```
+  sudo docker-compose up -d
+```
+
+### 4. *Opcional - Liberar a porta 3306 (caso esteja usando firewall)*:
 ```
   sudo ufw allow 3306/tcp
   sudo ufw status
 ```
 
-### 7. *Atualizar as Regras de Segurança no AWS*:
+### 5. *Atualizar as Regras de Segurança no AWS*:
 1. No console do Amazon EC2, vá para "Security Groups".
 2. Selecione o grupo de segurança associado à instâcia do banco de dados.
 3. Adicione uma regra de entrada para permitir o tráfego no porto do MySQL (3306):
@@ -71,7 +78,7 @@ Configurações necessárias para implementar uma arquitetura de rede usando má
 
 <hr/>
 
-## Configuração dos Servidores Backend
+## *Configuração dos Servidores Backend*
 
 ### 1. *Instalar Git*:
 ```
@@ -97,7 +104,7 @@ Configurações necessárias para implementar uma arquitetura de rede usando má
   sudo apt install docker.io -y
 ```
 
-### 5. *Configurar Docker no projeto*:
+### 5. *Configurar arquivo .env do projeto*:
 
 * No diretório do backend (Redes-Synergy/Backend/nestjs), crie um arquivo .env com as configurações necessárias e do banco de dados.
 ```
@@ -124,7 +131,7 @@ Configurações necessárias para implementar uma arquitetura de rede usando má
 ```
 
 * Adicione ao final do Dockerfile.
-```
+```dockerfile
     CMD ["npm", "run", "start:dev"]
 ```
 
@@ -161,3 +168,145 @@ Configurações necessárias para implementar uma arquitetura de rede usando má
 ### 11. *Repita as etapas para as outras máquinas backend.*
 
 <hr/>
+
+## Configuração do Servidor Web/Proxy
+## *Servindo o Frontend*
+
+### 1. *Instalar Git*:
+```
+  sudo apt-get update
+  sudo apt-get install git -y
+```
+
+### 2. *Verificar instalação do Git*:
+```
+  git --version
+```
+
+### 3. *Clonar o repositório do frontend*:
+```
+  git clone https://github.com/cauancesar/Redes-Synergy.git
+  cd Redes-Synergy
+  git submodule init Frontend
+  git submodule update --remote Frontend
+```
+
+### 4. *Configurar arquivo .env do projeto*:
+
+* No diretório do backend (Redes-Synergy/Backend/nestjs), crie um arquivo .env com as configurações necessárias e do banco de dados.
+```
+  sudo vim Redes-Synergy\Backend\nestjs\.env
+```
+```.env
+  NEXTAUTH_SECRET=@teste2000
+  BACKEND_URL=http://ip_backend:port(docker)    # http://backend:5000 Docker users  # local: http://localhost:5000 # http://ip_backend:port
+```
+
+### 5. *Buildar e iniciar o frontend*:
+* No diretório raiz do frontend (Redes-Synergy/Frontend).
+```
+  export NODE_OPTIONS="--max-old-space-size=512"  \\ Caso a máquina não tenha muito espaço de memória disponível.
+  npm run build
+```
+* Depois de buildar a aplicação, inicie-a.
+```
+  npm start
+```
+
+## *Configurando o Load Balancer (usando nginx)*
+
+### 1. *Instalar o nginx*:
+```
+  sudo apt update
+  sudo apt install nginx
+```
+
+### 2. *Criar e configurar o arquivo do load balancer*:
+* Criando arquivo.
+```
+  sudo vim /etc/nginx/conf.d/load_balancer.conf
+```
+* Configurações do arquivo load_balancer.conf.
+```nginx
+  upstream backend {
+          server 123.123.123.213:5000;  # IP ou hostname do servidor backend
+          server 123.123.123.175:5000;  # IP ou hostname do servidor backend
+          server 123.123.123.160:5000;  # IP ou hostname do servidor backend
+  }
+  
+  server {
+          listen 8080;  # Porta que o load balancer irá escutar
+  
+          location / {
+                  proxy_pass http://backend;  # Redireciona requisições para os servidores backend
+          }
+  }
+```
+
+### 3. *Teste as configurações do nginx*:
+```
+  sudo nginx -t
+```
+
+### 4. *Reinicie o nginx para aplicar as configurações*:
+```
+  sudo nginx -s reload
+```
+
+## *Configurando o Proxy Reverso (usando nginx)*:
+
+### 1. *Criar e configurar o arquivo do proxy reverso*:
+* Com o nginx já instalado, crie o arquivo.
+```
+  sudo vim /etc/nginx/sites-available/proxy_reverso.conf
+```
+
+* Configurações do arquivo proxy_reverso.conf.
+```nginx
+  server {
+      listen 80;
+      server_name 52.22.78.70;
+  
+  
+      location / {
+          proxy_pass http://ip_da_maquina_frontend:3000;  # Redireciona para o servidor Next.js em execução na porta 3000
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  
+          proxy_connect_timeout 5s;
+          proxy_send_timeout 10s;     # Tempo máximo para enviar dados
+          proxy_read_timeout 10s;     # Tempo máximo para receber dados
+          proxy_next_upstream error timeout http_502 http_503 http_504;
+  
+      }
+  
+      location /api/ { # Necessário para uma rota de login específica da aplicação Synergy
+          proxy_pass http://ip_da_maquina_frontend:3000;  # Redireciona para o servidor Next.js em execução na porta 3000
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      }
+  
+      location /synergy/ {
+          proxy_pass http://ip_da_maquina_loadbalancer:8080/;  # IP e porta do Load Balancer | com a "/" no final do ip o nginx remove o /synergy/ antes de repassar para o loadbalancer
+      }
+  }
+```
+
+### 3. *Linkar o arquivo de configuração ao arquivo em uso*:
+```
+  sudo ln -s /etc/nginx/sites-available/proxy_reverso.conf /etc/nginx/sites-enabled/
+```
+
+### 4. *Teste as configurações do nginx*:
+```
+  sudo nginx -t
+```
+
+### 5. *Reinicie o nginx para aplicar as configurações*:
+```
+  sudo nginx -s reload
+```
+
+## *Configurando a VPN*:
