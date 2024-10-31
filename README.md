@@ -1,5 +1,7 @@
 # Redes-Synergy
-Configurações necessárias para implementar uma arquitetura de rede usando máquinas da aws.
+## Introdução
+Este projeto implementa uma arquitetura de rede escalável usando instâncias da AWS. O objetivo é criar um ambiente robusto que suporte aplicações modernas, utilizando Docker para a contêinerização e Nginx para gerenciamento de tráfego. Ao seguir este guia, você aprenderá a configurar servidores backend, um banco de dados MySQL e um servidor web com balanceamento de carga.
+
 
 <img src="https://github.com/cauancesar/Redes-Synergy/blob/main/imgs/_TopologiaRedes.drawio.png" height=800></img>
 
@@ -53,6 +55,11 @@ services:
       MYSQL_DATABASE: "api"  # Nome para uma database
     ports:
       - "3306:3306"  # Porta do host e porta do container
+    volumes:
+      - mysql_data:/var/lib/mysql # Garante que os dados sejam persistentes
+
+volumes:
+  mysql_data: 
 ```
 
 ### 3. *Rodar o docker-compose*:
@@ -73,7 +80,7 @@ services:
 * Tipo: MySQL/Aurora
 * Protocolo: TCP
 * Porta: 3306
-* Origem: IP das máquinas do backend
+* Origem: IP das máquinas do backend (use apenas ips confiáveis para maior segurança).
 4. Clique em "Salvar regras".
 
 <hr/>
