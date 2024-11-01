@@ -184,10 +184,11 @@ volumes:
 ## Configuração do Servidor Web/Proxy
 ## *Servindo o Frontend*
 
-### 1. *Instalar Git*:
+### 1. *Instalar Git e npm*:
 ```
   sudo apt-get update
   sudo apt-get install git -y
+  sudo apt install npm
 ```
 
 ### 2. *Verificar instalação do Git*:
