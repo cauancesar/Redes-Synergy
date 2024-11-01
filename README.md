@@ -219,7 +219,17 @@ volumes:
 ### 5. *Buildar e iniciar o frontend*:
 * No diretório raiz do frontend (Redes-Synergy/Frontend).
 ```
-  export NODE_OPTIONS="--max-old-space-size=512"  \\ Caso a máquina não tenha muito espaço de memória disponível.
+  # Caso a máquina não tenha muito poder de processamento e memória
+  # Cria um arquivo de swap para expandir a memória disponível temporariamente
+  sudo fallocate -l 1G /swapfile
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile
+  sudo swapon /swapfile
+
+  # Execute o builde com um limite de memória
+  NODE_OPTIONS="--max-old-space-size=1024" npm run build
+
+  # Ou apenas rode
   npm run build
 ```
 * Depois de buildar a aplicação, inicie-a.
