@@ -207,9 +207,9 @@ volumes:
 
 ### 4. *Configurar arquivo .env do projeto*:
 
-* No diretório do backend (Redes-Synergy/Backend/nestjs), crie um arquivo .env com as configurações necessárias e do banco de dados.
+* No diretório do backend (Redes-Synergy/Frontend), crie um arquivo .env com as configurações necessárias e do banco de dados.
 ```
-  sudo vim Redes-Synergy/Backend/nestjs/.env
+  sudo vim Redes-Synergy/Frontend/.env
 ```
 ```.env
   NEXTAUTH_SECRET=@teste2000
