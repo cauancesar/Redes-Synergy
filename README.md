@@ -67,10 +67,15 @@ volumes:
   sudo docker-compose up -d
 ```
 
-### 4. *Opcional - Liberar a porta 3306 (caso esteja usando firewall)*:
+### 4. *Opcional - Criar e atualizar os privilégios de um novo usuario e criar a database da api*:
 ```
-  sudo ufw allow 3306/tcp
-  sudo ufw status
+  sudo docker exec -it mysql-db mysql -u root -p
+```
+```mysql
+  CREATE USER 'seu_usuario'@'%' IDENTIFIED BY 'sua_senha';
+  GRANT ALL PRIVILEGES ON . TO 'seu_usuario'@'%';
+  FLUSH PRIVILEGES;
+  CREATE DATABASE api;
 ```
 
 ### 5. *Atualizar as Regras de Segurança no AWS*:
@@ -115,7 +120,7 @@ volumes:
 
 * No diretório do backend (Redes-Synergy/Backend/nestjs), crie um arquivo .env com as configurações necessárias e do banco de dados.
 ```
-  sudo vim Redes-Synergy\Backend\nestjs\.env
+  sudo vim Redes-Synergy/Backend/nestjs/.env
 ```
 ```.env
   DB_HOST=123.123.123.32 #ip_maquina_BD
@@ -133,7 +138,7 @@ volumes:
 ### 7. *Modificar o Dockerfile e construir a imagem Docker*:
 * Ente no diretório Backend onde o Dockerfile está localizado e modifique o arquivo.
 ```
-  cd Redes-Synergy\Backend
+  cd Redes-Synergy/Backend
   sudo vim Dockerfile
 ```
 
@@ -202,11 +207,11 @@ volumes:
 
 * No diretório do backend (Redes-Synergy/Backend/nestjs), crie um arquivo .env com as configurações necessárias e do banco de dados.
 ```
-  sudo vim Redes-Synergy\Backend\nestjs\.env
+  sudo vim Redes-Synergy/Backend/nestjs/.env
 ```
 ```.env
   NEXTAUTH_SECRET=@teste2000
-  BACKEND_URL=http://ip_backend:port(docker)    # http://backend:5000 Docker users  # local: http://localhost:5000 # http://ip_backend:port
+  BACKEND_URL=http://ip_loadbalancer:port    # http://backend:5000 Docker users  # local: http://localhost:5000 # http://ip_backend:port
 ```
 
 ### 5. *Buildar e iniciar o frontend*:
@@ -272,7 +277,7 @@ volumes:
 ```nginx
   server {
       listen 80;
-      server_name 52.22.78.70;
+      server_name ip_da_maquina_proxy_reverso;
   
   
       location / {
@@ -316,4 +321,70 @@ volumes:
   sudo nginx -s reload
 ```
 
-## *Configurando a VPN*:
+## *Configurando a VPN (usando OpenVPN)*:
+
+### 1. *Instalar o OpenVPN*:
+```
+  sudo apt update
+  sudo apt install openvpn -y
+```
+
+### 2. *Entre na pasta openvpn e exclua as pastas client e server*:
+```
+  cd /etc/openvpn/
+  rm -r client/
+  rm -r server/
+```
+
+### 3. *Crie e configure o arquivo do servidor*:
+* Faça login como usuário root
+```
+ sudo su
+```
+
+* Criando o arquivo server.conf
+```
+  vim server.conf
+```
+
+* Configurando o arquivo server.conf
+```conf
+  dev tun
+  ifconfig 10.0.0.1 10.0.0.2 # IP privado da máquina | IP do servidor / IP do cliente
+  secret /etc/openvpn/chave
+  port 1194 # Porta do openvpn (pode ser qualquer outra)
+  proto udp
+  comp-lzo
+  verb 4
+  keepalive 10 120
+  persist-key
+  persist-tun
+  float
+  cipher AES256
+```
+
+### 4. *Crie e configure o arquivo do cliente*:
+* Com o arquivo server.conf criado, faça uma copia de server.conf para o arquivo client.conf
+```
+  cat server.conf > client.conf
+```
+
+* Edite o arquivo client.conf
+```conf
+  dev tun
+  ifconfig 10.0.0.2 10.0.0.1 # IP privado da máquina | IP do cliente / IP do servidor
+  remote ip_publico_da_maquina
+  secret /etc/openvpn/chave
+  port 1194 # Porta do openvpn (pode ser qualquer outra)
+  proto udp
+  comp-lzo
+  verb 4
+  keepalive 10 120
+  persist-key
+  persist-tun
+  float
+  cipher AES256
+```
+
+# 5. *Crie a chave do openvpn*:
+
