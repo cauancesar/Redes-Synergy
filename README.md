@@ -30,6 +30,7 @@ Este projeto implementa uma arquitetura de rede escalável usando instâncias da
 
 ### 1. *Instalar Docker e Docker Compose*:
 ```
+  sudo apt-get update
   sudo apt install docker.io -y
   sudo apt  install docker-compose
 ```
