@@ -386,5 +386,133 @@ volumes:
   cipher AES256
 ```
 
-# 5. *Crie a chave do openvpn*:
+### 5. *Crie a chave do openvpn copie para o usuário linux logado e dê as permissões necessárias*:
+* Criando a chave.
+```
+  openvpn --genkey --secret chave
+```
+
+* Copiando a chave para o usuário ubuntu.
+```
+  cp chave /home/ubuntu
+```
+
+* Dê a permissão para o usuário ubuntu.
+```
+  chown ubuntu:ubuntu /home/ubuntu/chave
+  ll /home/ubuntu/chave  # Para verificar se as permissões foram bem sucedidas.
+```
+* Copie o arquivo client.conf para o usuario ubuntu e dê as mesmas permissões.
+```
+  cp client.conf /home/ubuntu
+  chown ubuntu:ubuntu /home/ubuntu/client.conf
+  ll /home/ubuntu/chave  # Para verificar se as permissões foram bem sucedidas.
+```
+### 6. *Ative o encaminhamento de IP*:
+* Esses comandos ativam o encaminhamento de pacotes IP, que é necessário para que os clientes da VPN possam se comunicar com a rede externa.
+```
+  echo 1 > /proc/sys/net/ipv4/ip_forward
+  sysctl -p  # Aplica as alterações de configuração do sistema.
+```
+
+### 7. *Configure as regras do iptables*:
+* Essas regras permitem que o tráfego da rede privada 10.0.0.0/24 seja roteado corretamente através do servidor VPN e redirecionado para a interface externa.
+```
+  iptables -t nat -A POSTROUTING -s 10.0.0.0/24 -o eth0 -j MASQUERADE
+  iptables -A FORWARD -i tun0 -o eth0 -j ACCEPT
+  iptables -A FORWARD -i eth0 -o tun0 -j ACCEPT
+  iptables-save  # Salva as regras do iptables para que elas persistam após reinicializações.
+```
+
+### 8. *Faça o download da chave e do arquivo client.conf para a máquina do cliente*:
+```                                                                 
+                                                                (usuário do par de chaves e ip publico da maquina)
+  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho-para-o-arquivo/home/ubuntu/chave .
+  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho-para-o-arquivo/home/ubuntu/cliente.conf .
+```
+
+### 9. *Inicie o servidor do VPN*:
+```
+  openvpn --config server.conf
+```
+
+### 9. *Atualizar as Regras de Segurança no AWS*:
+
+#### *Configuração da VPN*
+
+1 - No console do Amazon EC2, vá para "Security Groups".
+
+2 - Selecione o grupo de segurança associado à instância que atua como servidor VPN.
+
+3 - Adicione uma regra de entrada para permitir o tráfego na porta 1194 (utilizada pela VPN):
+  * Tipo: UDP personalizado
+  * Protocolo: UDP
+  * Porta: 1194
+  * Origem: 0.0.0.0/0 (para acesso de qualquer endereço IP).
+
+4 - Clique em "Salvar regras" para aplicar a nova regra.
+
+#### *Configuração do Frontend*
+
+1 - No console do Amazon EC2, vá para "Security Groups".
+
+2 - Selecione o grupo de segurança associado à instância do Frontend.
+
+3 - Adicione uma regra de entrada para permitir o tráfego na porta 3000 (utilizada pelo Frontend):
+  * Tipo: TCP personalizado
+  * Protocolo: TCP
+  * Porta: 3000
+  * Origem: ip_publico_maquina_Web/Proxy (substitua ip_publico_maquina_Web/Proxy pelo IP público da instância Web/Proxy).
+
+4 - Clique em "Salvar regras" para aplicar a nova regra.
+
+#### *Configuração do Load Balancer*
+
+1 - No console do Amazon EC2, vá para "Security Groups".
+
+2 - Selecione o grupo de segurança associado à instância do Load Balancer.
+
+3 - Adicione uma regra de entrada para permitir o tráfego na porta 8080 (utilizada pelo Load Balancer):
+  * Tipo: TCP personalizado
+  * Protocolo: TCP
+  * Porta: 8080
+  * Origem: ip_publico_maquina_Web/Proxy (substitua ip_publico_maquina_Web/Proxy pelo IP público da instância Web/Proxy).
+
+4 - Clique em "Salvar regras" para aplicar a nova regra.
+
+### 10. *Como se conectar ao servidor VPN usando o OpenVPN GUI no Windows*:
+1 - Baixe e instale o OpenVPN GUI no seu computador Windows.
+
+2 - Copie os arquivos client.conf e chave que você baixou anteriormente para a pasta de configuração do OpenVPN:
+```
+  C:\Program Files\OpenVPN\config
+```
+
+3 - Abra o OpenVPN GUI como Administrador (clique com o botão direito do mouse no ícone e selecione "Executar como administrador").
+
+4 - Você verá o ícone do OpenVPN na bandeja do sistema (canto inferior direito da tela). Clique com o botão direito do mouse no ícone.
+
+5 - Modifique o arquivo client.conf:
+```ovpn
+  dev tun
+  ifconfig 10.0.0.2 10.0.0.1
+  remote ip_publico_maquina_VPN
+  port 1194
+  secret C:\\Caminho-Para-A-Chave\\chave
+  proto udp
+  verb 4
+  keepalive 10 120
+  persist-key
+  persist-tun
+  float
+  cipher AES256
+  auth SHA256
+```
+  * Salve o arquivo como .ovpn (para funcionar no windows).
+
+6 - No menu, selecione a opção correspondente ao seu perfil de VPN (que deve ser o nome do arquivo client.conf).
+
+7 - Clique em "Conectar". O OpenVPN tentará estabelecer a conexão com o servidor VPN. Você verá mensagens de status na janela do OpenVPN GUI.
+
+8 - Se a conexão for bem-sucedida, você verá uma mensagem de confirmação. Agora você estará conectado à VPN!
 
