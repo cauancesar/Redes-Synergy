@@ -32,7 +32,7 @@ Este projeto implementa uma arquitetura de rede escalável usando instâncias da
 ```
   sudo apt-get update
   sudo apt install docker.io -y
-  sudo apt  install docker-compose
+  sudo apt install docker-compose
 ```
 
 ### 2. *Criar o arquivo docker compose*:
@@ -51,8 +51,8 @@ services:
     container_name: Mysql  # Nome do container
     environment:  # Váriaveis de ambiente mysql
       MYSQL_ROOT_PASSWORD: "teste123"  # Senha do usuário root (séra criado junto do container)
-      MYSQL_USER: "Syatt"  # Nome de usuário caso necessário
-      MYSQL_PASSWORD: "Senha123#"  #  Senha para o usuário
+      MYSQL_USER: "root"  # Nome de usuário caso necessário
+      MYSQL_PASSWORD: "teste123#"  #  Senha para o usuário
       MYSQL_DATABASE: "api"  # Nome para uma database
     ports:
       - "3306:3306"  # Porta do host e porta do container
@@ -127,7 +127,7 @@ volumes:
   DB_HOST=123.123.123.32 #ip_maquina_BD
   DB_PORT=3306           # Porta do banco de dados (normalmente 3306)
   DB_USERNAME=root       # Usuario do banco de dados Ex: root
-  DB_PASSWORD=exemplo    # Senha do usuario escolhido
+  DB_PASSWORD=teste123    # Senha do usuario escolhido
 ```
 
 ### 6. *Adicionar usuário ao grupo Docker e reiniciar a máquina*:
@@ -143,9 +143,24 @@ volumes:
   sudo vim Dockerfile
 ```
 
-* Adicione ao final do Dockerfile.
+* Adicione o seguinte comando ao final do Dockerfile.
 ```dockerfile
-    CMD ["npm", "run", "start:dev"]
+  FROM node:20-alpine as backend
+  
+  # Cria o diretório do app
+  WORKDIR /usr/src/app
+  
+  # Copia  os arquivos para a pasta de trabalho (workdir)
+  COPY --chown=node:node ./nestjs .
+  
+  # Instala as dependencias 
+  RUN npm install --quiet --no-optional --no-fund
+  RUN npm run build
+  
+  RUN chown -R node:node /usr/src/app/dist
+  
+  CMD ["npm", "run", "start:dev"]  <----
+  EXPOSE 5000
 ```
 
 * Construa a imagem do docker.
@@ -175,6 +190,7 @@ volumes:
 6. Clique em "Salvar regras".
   
 ### 10. *Testar o backend*:
+Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 * Acesse http://ip_publico_da_maquina:5000
 * Deve retornar {"message":"Unauthorized","statusCode":401} indicando que o backend está ativo, mas você não está autenticado.
 
@@ -289,7 +305,7 @@ volumes:
 ```nginx
   server {
       listen 80;
-      server_name ip_da_maquina_proxy_reverso;
+      server_name 10.0.0.1; # IP do servidor da vpn | ou ip publico da máquina do proxy reverso
   
   
       location / {
@@ -344,8 +360,8 @@ volumes:
 ### 2. *Entre na pasta openvpn e exclua as pastas client e server*:
 ```
   cd /etc/openvpn/
-  rm -r client/
-  rm -r server/
+  sudo rm -r client/
+  sudo rm -r server/
 ```
 
 ### 3. *Crie e configure o arquivo do servidor*:
@@ -362,7 +378,7 @@ volumes:
 * Configurando o arquivo server.conf
 ```conf
   dev tun
-  ifconfig 10.0.0.1 10.0.0.2 # IP privado da máquina | IP do servidor / IP do cliente
+  ifconfig 10.0.0.1 10.0.0.2 # IP do servidor / IP do cliente
   secret /etc/openvpn/chave
   port 1194 # Porta do openvpn (pode ser qualquer outra)
   proto udp
@@ -384,8 +400,8 @@ volumes:
 * Edite o arquivo client.conf
 ```conf
   dev tun
-  ifconfig 10.0.0.2 10.0.0.1 # IP privado da máquina | IP do cliente / IP do servidor
-  remote ip_publico_da_maquina
+  ifconfig 10.0.0.2 10.0.0.1 # IP do cliente / IP do servidor
+  remote ip_publico_da_maquina_vpn
   secret /etc/openvpn/chave
   port 1194 # Porta do openvpn (pode ser qualquer outra)
   proto udp
@@ -418,37 +434,21 @@ volumes:
 ```
   cp client.conf /home/ubuntu
   chown ubuntu:ubuntu /home/ubuntu/client.conf
-  ll /home/ubuntu/chave  # Para verificar se as permissões foram bem sucedidas.
+  ll /home/ubuntu/client.conf  # Para verificar se as permissões foram bem sucedidas.
 ```
-### 6. *Ative o encaminhamento de IP*:
-* Esses comandos ativam o encaminhamento de pacotes IP, que é necessário para que os clientes da VPN possam se comunicar com a rede externa.
-```
-  echo 1 > /proc/sys/net/ipv4/ip_forward
-  sysctl -p  # Aplica as alterações de configuração do sistema.
-```
-
-### 7. *Configure as regras do iptables*:
-* Essas regras permitem que o tráfego da rede privada 10.0.0.0/24 seja roteado corretamente através do servidor VPN e redirecionado para a interface externa.
-```
-  iptables -t nat -A POSTROUTING -s 10.0.0.0/24 -o eth0 -j MASQUERADE
-  iptables -A FORWARD -i tun0 -o eth0 -j ACCEPT
-  iptables -A FORWARD -i eth0 -o tun0 -j ACCEPT
-  iptables-save  # Salva as regras do iptables para que elas persistam após reinicializações.
-```
-
-### 8. *Faça o download da chave e do arquivo client.conf para a máquina do cliente*:
+### 6. *Faça o download da chave e do arquivo client.conf para a máquina do cliente*:
 ```                                                                 
-                                                                (usuário do par de chaves e ip publico da maquina)
-  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho-para-o-arquivo/home/ubuntu/chave .
-  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho-para-o-arquivo/home/ubuntu/cliente.conf .
+                                                        (usuário do par de chaves e ip publico da maquina)
+  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho-para-o-arquivo/chave .
+  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho-para-o-arquivo/cliente.conf .
 ```
 
-### 9. *Inicie o servidor do VPN*:
+### 7. *Inicie o servidor do VPN*:
 ```
   openvpn --config server.conf
 ```
 
-### 9. *Atualizar as Regras de Segurança no AWS*:
+### 8. *Atualizar as Regras de Segurança no AWS*:
 
 #### *Configuração da VPN*
 
@@ -510,7 +510,7 @@ volumes:
   ifconfig 10.0.0.2 10.0.0.1
   remote ip_publico_maquina_VPN
   port 1194
-  secret C:\\Caminho-Para-A-Chave\\chave
+  secret C:\\Caminho-Para-o-Arquivo\\chave
   proto udp
   verb 4
   keepalive 10 120
