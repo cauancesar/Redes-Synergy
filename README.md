@@ -5,6 +5,16 @@ Este projeto implementa uma arquitetura de rede escalável usando instâncias da
 
 <img src="https://github.com/cauancesar/Redes-Synergy/blob/main/imgs/_TopologiaRedes.drawio.png" height=800></img>
 
+## **Índice**
+1. [Introdução](#introdução)
+2. [Configuração da AWS](#configuração-da-aws)
+3. [Configuração do Banco de Dados (MySQL)](#configuração-do-banco-de-dados-mysql)
+4. [Configuração dos Servidores Backend](#configuração-dos-servidores-backend)
+5. [Configuração do Servidor Web/Proxy](#configuração-do-servidor-webproxy)
+6. [Configuração do Load Balancer](#configuração-do-load-balancer)
+7. [Configuração do Proxy Reverso](#configuração-do-proxy-reverso)
+8. [Configuração da VPN](#configuração-da-vpn)
+
 ## *Configuração da AWS*
 
 ### 1. *Criar uma instância EC2 para cada máquina*:
@@ -186,11 +196,11 @@ volumes:
 * Tipo: MYSQL/Aurora
 * Protocolo: TCP
 * Porta: 3306
-* Origem: IP da máquina do banco de dados ou selecione o grupo de segurança da instância associada ao banco de dados.
+* Origem: IP da máquina do banco de dados.
 6. Clique em "Salvar regras".
   
 ### 10. *Testar o backend*:
-Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
+Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 nas regras de entrada do aws para testar.
 * Acesse http://ip_publico_da_maquina:5000
 * Deve retornar {"message":"Unauthorized","statusCode":401} indicando que o backend está ativo, mas você não está autenticado.
 
@@ -254,6 +264,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 ```
 
 ## *Configurando o Load Balancer (usando nginx)*
+No arquivo `load_balancer.conf`, a diretiva `upstream backend` define um grupo de servidores que irão processar as requisições. O `proxy_pass` no bloco `location` redireciona as requisições para os servidores definidos no `upstream`.
 
 ### 1. *Instalar o nginx*:
 ```
@@ -266,6 +277,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 ```
   sudo vim /etc/nginx/conf.d/load_balancer.conf
 ```
+
 * Configurações do arquivo load_balancer.conf.
 ```nginx
   upstream backend {
@@ -304,7 +316,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 * Configurações do arquivo proxy_reverso.conf.
 ```nginx
   server {
-      listen 80;
+      listen 10.0.0.1:80;   # Limita o proxy reverso para o ip 10.0.0.1 na porta 80
       server_name 10.0.0.1; # IP do servidor da vpn | ou ip publico da máquina do proxy reverso
   
   
@@ -350,6 +362,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 ```
 
 ## *Configurando a VPN (usando OpenVPN)*:
+O OpenVPN permite a criação de redes privadas seguras. O servidor `server.conf` define os parâmetros da conexão, enquanto o cliente `client.conf` contém as configurações para se conectar ao servidor.
 
 ### 1. *Instalar o OpenVPN*:
 ```
@@ -379,7 +392,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 ```conf
   dev tun
   ifconfig 10.0.0.1 10.0.0.2 # IP do servidor / IP do cliente
-  secret /etc/openvpn/chave
+  secret /caminho/para/chave
   port 1194 # Porta do openvpn (pode ser qualquer outra)
   proto udp
   comp-lzo
@@ -402,7 +415,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
   dev tun
   ifconfig 10.0.0.2 10.0.0.1 # IP do cliente / IP do servidor
   remote ip_publico_da_maquina_vpn
-  secret /etc/openvpn/chave
+  secret /caminho/para/chave
   port 1194 # Porta do openvpn (pode ser qualquer outra)
   proto udp
   comp-lzo
@@ -439,8 +452,8 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 ### 6. *Faça o download da chave e do arquivo client.conf para a máquina do cliente*:
 ```                                                                 
                                                         (usuário do par de chaves e ip publico da maquina)
-  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho-para-o-arquivo/chave .
-  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho-para-o-arquivo/cliente.conf .
+  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho/para/chave .
+  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho/para/cliente.conf .
 ```
 
 ### 7. *Inicie o servidor do VPN*:
@@ -448,9 +461,9 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
   openvpn --config server.conf
 ```
 
-### 8. *Atualizar as Regras de Segurança no AWS*:
+## *Atualizando as Regras de Segurança no AWS*:
 
-#### *Configuração da VPN*
+### *Configuração da VPN*
 
 1 - No console do Amazon EC2, vá para "Security Groups".
 
@@ -464,7 +477,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 
 4 - Clique em "Salvar regras" para aplicar a nova regra.
 
-#### *Configuração do Frontend*
+### *Configuração do Frontend*
 
 1 - No console do Amazon EC2, vá para "Security Groups".
 
@@ -478,7 +491,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 
 4 - Clique em "Salvar regras" para aplicar a nova regra.
 
-#### *Configuração do Load Balancer*
+### *Configuração do Load Balancer*
 
 1 - No console do Amazon EC2, vá para "Security Groups".
 
@@ -492,7 +505,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 
 4 - Clique em "Salvar regras" para aplicar a nova regra.
 
-### 10. *Como se conectar ao servidor VPN usando o OpenVPN GUI no Windows*:
+## *Como se conectar ao servidor VPN usando o OpenVPN GUI no Windows*:
 1 - Baixe e instale o OpenVPN GUI no seu computador Windows.
 
 2 - Copie os arquivos client.conf e chave que você baixou anteriormente para a pasta de configuração do OpenVPN:
@@ -510,7 +523,7 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
   ifconfig 10.0.0.2 10.0.0.1
   remote ip_publico_maquina_VPN
   port 1194
-  secret C:\\Caminho-Para-o-Arquivo\\chave
+  secret C:\\caminho\\para\\chave
   proto udp
   verb 4
   keepalive 10 120
@@ -528,3 +541,238 @@ Abra a porta 5000 no protocolo tcp para o ip 0.0.0.0 no aws para testar
 
 8 - Se a conexão for bem-sucedida, você verá uma mensagem de confirmação. Agora você estará conectado à VPN!
 
+## **(Opcional) - Adicionando certificação ao OpenVPN usando EasyRSA**
+
+### 1. *Instalar o EasyRSA*.
+```
+  sudo su
+  apt update
+  apt install easy-rsa
+```
+
+2 - Copie a pasta do easy rsa para dentro da pasta openvpn.
+```
+  cd /etc/openvpn/
+  cp -r /usr/share/easy-rsa .
+```
+
+3 - Crie o arquivo vars dentro da pasta easy-rsa;
+```
+  cd easy-rsa/
+  vim vars
+```
+
+**vars**
+```conf
+if [ -z "$EASYRSA_CALLER" ]; then
+        echo "You appear to be sourcing an Easy-RSA *vars* file. This is" >&2
+        echo "no longer necessary and is disallowed. See the section called" >&2
+        echo "*How to use this file* near the top comments for more details." >&2
+        return 1
+fi
+
+set_var EASYRSA "${0%/*}"
+set_var EASYRSA_PKI             "$PWD/pki"
+set_var EASYRSA_TEMP_DIR        "$EASYRSA_PKI"
+set_var EASYRSA_DN      "cn_only"
+set_var EASYRSA_KEY_SIZE        2048
+set_var EASYRSA_CA_EXPIRE       3650
+set_var EASYRSA_CERT_EXPIRE     825
+```
+
+Execute os comandos:
+```
+./easyrsa init-pki
+./easyrsa build-ca
+./easyrsa ger-req web nopass
+./easyrsa gen-req web nopass
+./easyrsa sign-req server web
+./easyrsa gen-req client nopass
+./easyrsa sign-req client client
+./easyrsa gen-dh
+```
+
+4 - Crie uma chave para o tls.
+```
+cd /etc/openvpn
+openvpn --genkey secret ta.key
+```
+
+5 - Atualize o arquivo server.conf e o arquivo client.
+**server.conf**
+```conf
+dev tun
+port 1194 # Porta do openvpn (pode ser qualquer outra)
+proto udp
+
+ifconfig 10.0.0.1 10.0.0.2
+push "ifconfig 10.0.0.2 10.0.0.1"
+push "route 10.0.0.0 255.255.255.0"
+
+ca /caminho/para/ca.crt
+cert /caminho/para/web.crt
+key /caminho/para/web.key
+dh /caminho/para/dh.pem
+tls-auth /caminho/para/ta.key 0
+
+tls-server
+cipher AES-256-GCM
+auth SHA256
+
+comp-lzo
+verb 4
+
+keepalive 10 120
+persist-key
+persist-tun
+float
+```
+
+**client.ovpn** (para windows)
+```conf
+client
+dev tun
+proto udp
+remote ip_publico_da_maquina_vpn 1194
+resolv-retry infinite
+nobind
+comp-lzo
+persist-key
+persist-tun
+remote-cert-tls server
+cipher AES-256-GCM
+auth SHA256
+key-direction 1
+verb 3
+disable-dco
+
+
+ca C:/caminho/para/ca.crt
+cert C:/caminho/para/client.crt
+key C:/caminho/para/client.key
+tls-auth C:/caminho/para/ta.key
+```
+
+6 - Coloque os arquivos necessarios na maquina do cliente.
+```
+cd /etc/openvpn
+mkdir /home/ubuntu/client  # Cria uma pasta chamada client
+cp easy-rsa/pki/issued/client.crt /home/ubuntu/client/
+cp easy-rsa/pki/private/client.key /home/ubuntu/client/
+cp ta.key  /home/ubuntu/client/
+cp easy-rsa/pki/ca.crt /home/ubuntu/client/
+```
+
+De as permissões para o usuario ubuntu.
+```
+cd /home/ubuntu/client
+chown ubuntu:ubuntu *
+```
+
+7 - Faça download dos arquivos.
+```
+                                                        (usuário do par de chaves e ip publico da maquina)
+  scp -i <Aquivo .pem/Par de chaves criado para as instâncias da AWS> ubuntu@123.123.123.123:/caminho/para/client/* .
+```
+
+8 - Inicie o servidor openvpn e teste.
+```
+  killall openvpn
+  openvpn --config /caminho/para/server.conf
+```
+
+### **(Opcional) - Adicionando health check ao load balancer**
+1 - Instale as dependências necessárias
+```
+sudo su
+apt update
+apt install -y build-essential libpcre3 libpcre3-dev zlib1g zlib1g-dev libssl-dev
+```
+
+2 - Baixe o código-fonte do nginx
+Baixe e extraia o código-fonte do nginx:
+```
+cd /usr/local/src
+wget http://nginx.org/download/nginx-1.24.0.tar.gz
+tar -xzvf nginx-1.24.0.tar.gz
+cd nginx-1.24.0
+```
+
+3 - Baixe o módulo nginx-upstream-check-module
+Clone o repositório do módulo de verificação de saúde:
+```
+git clone https://github.com/yaoweibin/nginx_upstream_check_module.git
+```
+
+4 - Aplique o patch no código do Nginx que você baixou
+```
+patch -p1 < /caminho/para/nginx_upstream_check_module/check_1.20.1+.patch
+```
+
+5 - Configure a compilação
+```
+./configure \
+--prefix=/usr/share/nginx \
+--sbin-path=/usr/sbin/nginx \
+--modules-path=/usr/lib/nginx/modules \
+--conf-path=/etc/nginx/nginx.conf \
+--error-log-path=/var/log/nginx/error.log \
+--http-log-path=/var/log/nginx/access.log \
+--pid-path=/run/nginx.pid \
+--lock-path=/var/lock/nginx.lock \
+--http-client-body-temp-path=/var/lib/nginx/body \
+--http-proxy-temp-path=/var/lib/nginx/proxy \
+--http-fastcgi-temp-path=/var/lib/nginx/fastcgi \
+--with-http_ssl_module \
+--with-stream \
+--with-http_v2_module \
+--add-module=./nginx_upstream_check_module
+```
+
+6 - Compile e instale o nginx
+```
+make -j$(nproc)
+make install
+```
+> O parâmetro -j$(nproc) otimiza o processo de compilação utilizando todos os núcleos do processador disponíveis.
+
+7 - Verifique a versão e os módulos instalados
+
+Após a instalação, verifique se o módulo foi corretamente instalado executando:
+```
+nginx -V
+```
+Procure pela linha nginx_upstream_check_module na saída para confirmar que o módulo foi carregado corretamente.
+
+8 - Modifique o arquivo load_balancer.conf
+
+No arquivo de configuração do nginx, adicione a configuração de health checks.
+```conf
+  upstream backend {
+          server ip_publico_backend1:5000;  # IP ou hostname do servidor backend
+          server ip_publico_backend2:5000;  # IP ou hostname do servidor backend
+          server ip_publico_backend3:5000;  # IP ou hostname do servidor backend
+
+          check interval=5000 rise=1 fall=3 timeout=4000; <--- Adicione essa linha
+
+          # interval=5000: intervalo entre os verificações de saúde (5 segundos)
+          # rise=1: número de tentativas bem-sucedidas necessárias para considerar o servidor saudável
+          # fall=3: número de falhas consecutivas necessárias para considerar o servidor inativo
+          # timeout=4000: tempo máximo para a resposta de cada verificação de saúde (4 segundos)
+  }
+
+  server {
+          listen 8080;  # Porta que o load balancer irá escutar
+
+          location / {
+                proxy_pass http://backend;  # Redireciona requisições para os servidores backend
+          }
+  }
+```
+
+9 - Teste e reinicie o nginx
+Depois de modificar o arquivo de configuração, teste a configuração do Nginx e reinicie o serviço para aplicar as mudanças:
+```
+nginx -t
+systemctl restart nginx
+```
