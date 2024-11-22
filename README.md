@@ -11,6 +11,7 @@
     - 5.5. [Como se conectar ao servidor VPN usando o OpenVPN GUI no Windows](#como-se-conectar-ao-servidor-vpn-usando-o-openvpn-gui-no-windows)
 6. [(Opcional) - Adicionar certificação ao OpenVPN usando EasyRSA](#opcional---adicionar-certificação-ao-openvpn-usando-easyrsa)
 7. [(Opcional) - Adicionar Health Check ao Load Balancer no Nginx](#opcional---adicionar-health-check-ao-load-balancer-no-nginx)
+8. [Conclusão](#conclusão)
 
 # Introdução
 Este projeto implementa uma arquitetura de rede escalável usando instâncias da AWS. O objetivo é criar um ambiente robusto que suporte aplicações modernas, utilizando Docker para a contêinerização e Nginx para gerenciamento de tráfego. Ao seguir este guia, você aprenderá a configurar servidores backend, um banco de dados MySQL e um servidor web com balanceamento de carga.
@@ -809,3 +810,6 @@ Depois de modificar o arquivo de configuração, teste a configuração do Nginx
 nginx -t
 systemctl restart nginx
 ```
+
+# Conclusão
+Neste guia, configuramos um ambiente completo utilizando AWS, servidores backend, e uma infraestrutura de proxy e load balancing com Nginx, além de uma VPN para segurança adicional. Através das etapas apresentadas, você pode agora ter um sistema robusto, escalável e seguro, com alta disponibilidade para os seus serviços.
